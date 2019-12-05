@@ -19,8 +19,8 @@ else:
     COM = 'COM6'
 
 app = Flask(__name__)
-p = Printer(COM)
-u = Uploader(p)
+#p = Printer(COM)
+#u = Uploader(p)
 l = LED()
 i = 0 
 aps = BackgroundScheduler()
@@ -156,27 +156,27 @@ def configure():
 #def check():
 #    l.stop()
 #    经测试，程序是可以通过aps进来，不过是延时三十秒，不要心急
-#    global i
-#    if(g == True): #这句话检测出来g没有变成True，所以是传g值发生问题
+##    global i
+##    if(g == True): #这句话检测出来g没有变成True，所以是传g值发生问题
 #        l.stop()   #这个和上面的if构成了检测环节，但是并没有发生该有的现象
-#    if (Uploader.g):
-#        i = 0
-#        Uploader.g = False
-#    else:
-#        i = i + 1 #  这里经检测无误
-#        if(i >= 2):#  这里经检测无误
-#            i = 0
-#            os.system('reboot')
-#            while True:
-#                ret_1 = u.connect(settings['ip'], settings['eid'], settings['pw'])
-#                if ret_1:
-#                    l.t = 1
-#                    break
-#                else:
-#                    pass
+##    if (Uploader.g):
+##        i = 0
+##        Uploader.g = False
+##    else:
+##        i = i + 1 #  这里经检测无误
+##        if(i >= 2):#  这里经检测无误
+##            i = 0
+##            os.system('reboot')
+##            while True:
+##                ret_1 = u.connect(settings['ip'], settings['eid'], settings['pw'])
+##                if ret_1:
+##                    l.t = 1
+##                    break
+##                else:
+##                    pass
          # 测试是否连接上，制造现象    #  这里经检测无误
-#    timer = Timer(30,check)
-#    timer.start() 
+##    timer = Timer(30,check)
+##    timer.start() 
 
 
           
@@ -199,28 +199,28 @@ if __name__ == '__main__':
                 elif count == 3:
                     break
         l.t = 2
-        while True:
-            ret = p.connect(115200)
-            if ret:
-                break
-            ret = p.connect(250000)
-            if ret:
-                break
-            time.sleep(5)
+##        while True:
+##            ret = p.connect(115200)
+##            if ret:
+##                break
+##            ret = p.connect(250000)
+##            if ret:
+##                break
+##            time.sleep(5)
         l.t = 1
-        s = 0
+#        s = 0
 #        b = os.popen('iwconfig wlan0')
         os.system('bash /root/3DP2/3DP2/eth0_0.sh')
 #        c = os.popen('ifconfig eth0:0')
         l.t = 0.1
-        while True:
-            ret = u.connect(settings['ip'], settings['eid'], settings['pw'])
-            if ret:
-                break
+##        while True:
+##            ret = u.connect(settings['ip'], settings['eid'], settings['pw'])
+##            if ret:
+##                break
         l.stop()
-#        aps.add_job(check,'interval',seconds=30)
+##        aps.add_job(check,'interval',seconds=30)
 #        l.t = 0.1
-#        aps.start()
+##        aps.start()
 #        l.t = 2
 #        timer = Timer(30,check)
 #        timer.start()
