@@ -1,8 +1,0 @@
-Successfully initialized wpa_supplicant
-wlan0: SME: Trying to authenticate with 74:05:a5:22:64:c4 (SSID='TP-LINK_64C4' freq=2412 MHz)
-wlan0: Trying to associate with 74:05:a5:22:64:c4 (SSID='TP-LINK_64C4' freq=2412 MHz)
-wlan0: Associated with 74:05:a5:22:64:c4
-wlan0: CTRL-EVENT-SUBNET-STATUS-UPDATE status=0
-wlan0: CTRL-EVENT-REGDOM-CHANGE init=COUNTRY_IE type=COUNTRY alpha2=CN
-wlan0: WPA: Key negotiation completed with 74:05:a5:22:64:c4 [PTK=CCMP GTK=CCMP]
-wlan0: CTRL-EVENT-CONNECTED - Connection to 74:05:a5:22:64:c4 completed [id=0 id_str=]
