@@ -2,11 +2,16 @@ import socket
 import json
 import requests
 from printer import Printer
+from led import LED
 import threading
 import time
-
+import os
+import sys
 
 class Uploader:
+    g = False
+    o = 0
+    m = False
     def __init__(self, p: Printer):
         self.ip = ''  # 服务器的ip
         self.eid = ''  # 设备id
@@ -25,6 +30,9 @@ class Uploader:
 
         self.dip = ''  # 设备的ip
 
+
+
+
     def __del__(self):  # 删除对象时停住线程并关闭socket连接
         if self.sock:
             self.sock.close()
@@ -40,7 +48,9 @@ class Uploader:
         try:  # 连接socket
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.connect((self.ip, 8093))
+            print(self.ip +" "+self.eid+" ")
         except Exception:
+            print("network connect fail")
             return False
         ret = self.on_connect()  # 发给服务器进行验证
         return ret
@@ -51,10 +61,29 @@ class Uploader:
             'PW': self.pw
         }  # 设备认证数据DATA0
         self.sock.sendall(('AUT'+json.dumps(login)+'END'+'\n').encode('ascii'))  # 发送认证数据
+        print("send auth data ")
         rec = self.sock.recv(1024).decode('ascii')  # 接收平台返回数据
         rec.replace('\r\n', '')  # 清除换行符(java平台所致)
-        print(rec)  # 输出以便调试
+        print("ok from platform" + rec)
+#        self.sock.sendall(rec.encode('ascii'))
         if rec == 'OK':  # 认证通过则开启线程
+#            self.sock.sendall(rec.encode('ascii'))
+#            if(Uploader.o > 0):
+#                self.sock.sendall(rec.encode('ascii'))
+#                Uploader.m = True
+#                time.sleep(10)
+#                Uploader.m = False
+#                self.run = False
+#                self.receiver_t.getpid()
+#                self.sender_t.stop()
+#                threading.Thread._Thread__stop(self.sender_t)
+#                threading.Thread._Thread__stop(self.receiver_t)
+#                self.sender_t = threading.Thread(target=self.sender)  # 发送线程
+#                self.sender_t.setDaemon(True)  # 设为守护
+#                self.receiver_t = threading.Thread(target=self.receiver)  # 接收线程
+#                self.receiver_t.setDaemon(True)  # 设为守护
+#                self.loop_start()
+#            else:
             self.loop_start()
             return True
         else:  # 否则关闭连接
@@ -62,14 +91,16 @@ class Uploader:
             return False
 
     def loop_start(self):  # 开启线程
-        try:  # 获取设备ip
+        try:  # 获取设备所在网络的IP
             dip = requests.get('https://ifconfig.co/ip', timeout=10).text.replace('\n', '')
             self.dip = dip
         except:  # 获取不到则按0000处理
             self.dip = '0.0.0.0'
         self.run = True  # 开启发送接收线程
+#        Uploader.o = Uploader.o + 1 #区分是否为第一次进入
         self.receiver_t.start()
         self.sender_t.start()
+#        broadcast_check()
 
     def get_data(self):  # 获取打印机数据
         data = {
@@ -96,6 +127,10 @@ class Uploader:
 
     def sender(self):  # 发送数据线程
         while self.run:
+#            if(Uploader.m == True):
+#                pid = os.fork()
+#                if(pid > 0):
+#                    sys.exit(0)
             if self.is_started:  # 如果开始发送则发送数据
                 self.lock.acquire()  # 临界区开始
                 self.sock.send(('STA'+json.dumps(self.get_data())+'END'+'\n').encode('ascii'))  # 发送状态数据
@@ -110,11 +145,17 @@ class Uploader:
 
     def receiver(self):
         while self.run:
+#            if(Uploader.m == True):
+#                pid = os.fork()
+#                if(pid > 0):
+#                    sys.exit(0)
             rec = self.sock.recv(1024).decode('ascii').replace('\r\n', '')  # socket接收数据（阻塞）
             if rec == 'STA':  # 服务器开始发送状态数据信号
                 self.is_started = True
             if rec == 'STOP':  # 服务器停止发送状态数据信号
                 self.is_started = False
+            if rec == '{}':
+                Uploader.g = True
             else:  # 向打印机发送控制数据
                 self.lock.acquire()
                 self.sendcmd(rec)
@@ -133,6 +174,23 @@ class Uploader:
                 print(data333)  # 输出便于调试
                 self.sock.send((json.dumps(data333)+'\n').encode('ascii'))  # 向平台返回执行状态
 
+#    def _async_raise(tid, exctype):
+#        """raises the exception, performs cleanup if needed"""
+#        tid = ctypes.c_long(tid)
+#        if not inspect.isclass(exctype):
+#            exctype = type(exctype)
+#        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, ctypes.py_object(exctype))
+#        if res == 0:
+#            raise ValueError("invalid thread id")
+#        elif res != 1:
+#            # """if it returns a number greater than one, you're in trouble,
+#            # and you should call it again with exc=NULL to revert the effect"""
+#            ctypes.pythonapi.PyThreadState_SetAsyncExc(tid, None)
+#            raise SystemError("PyThreadState_SetAsyncExc failed")
+#
+#    def stop_thread(thread):
+#        _async_raise(thread.ident, SystemExit)
+# 
 
 # 用作单元测试
 if __name__ == '__main__':

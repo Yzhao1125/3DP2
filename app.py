@@ -7,33 +7,32 @@ import time
 from led import LED
 import glob
 import threading
+from apscheduler.schedulers.background import BackgroundScheduler
 
-# 提取com口名称字符串
 if platform.system() == 'Linux':
     COM = glob.glob(r'/dev/ttyUSB*') + glob.glob(r'/dev/ttyACM*')
     if len(COM) == 0:
         COM = '/dev/ttyUSB0'
     else:
         COM = COM[0]
-else:  # 用作在Windows上面测试
+else:
     COM = 'COM6'
 
-# 初始化全局变量
-app = Flask(__name__)  # flask的app
-p = Printer(COM)  # 打印机对象
-u = Uploader(p)  # 平台数据上传器对象
-
-# 配置数据字典
+app = Flask(__name__)
+p = Printer(COM)
+u = Uploader(p)
+l = LED()
+i = 0 
+aps = BackgroundScheduler()
 settings = {
-    'ssid': '',  # wifi名称
-    'psw': '',  # wifi密码
-    'ip': '',  # 平台服务器ip
-    'eid': '',  # 设备eid
-    'pw': ''  # 设备密码
+    'ssid': '',
+    'psw': '',
+    'ip': '',
+    'eid': '',
+    'pw': ''
 }
 
 
-# 根路由，如果有'settings.txt'文件，渲染index，没有则渲染wizard
 @app.route('/')
 def enter():
     if os.path.isfile('settings.txt'):
@@ -42,24 +41,22 @@ def enter():
         return render_template('wizard.html')
 
 
-# 写入配置文件，实测需要重启才能写入
 @app.route('/index')
 def index():
     with open('settings.txt', 'w') as f:
         f.write(str(settings))
     if platform.system() == 'Linux':
-        os.system('reboot')
+        return render_template('index.html')
+        # os.system('reboot')
     else:
         return render_template('index.html')
 
 
-# 渲染设置页面
 @app.route('/setting')
 def setting():
     return render_template('settings.html', **settings)
 
 
-# 恢复出厂设置
 @app.route('/reset')
 def reset():
     os.remove('settings.txt')
@@ -70,14 +67,13 @@ def reset():
     return 200
 
 
-# 测试wifi连接
 @app.route('/api/wifi_setting', methods=['GET', 'POST'])
 def wifi():
     if request.method == 'POST':
         ssid = request.form['ssid']
         psw = request.form['psw']
-        ret = wifi_connect(ssid, psw)  # 测试连接是否成功
-        if ret:  # 连接成功则设置settings字典的wifi账号密码值
+        ret = wifi_connect(ssid, psw)
+        if ret:
             settings['ssid'] = ssid
             settings['psw'] = psw
             return '连接成功'
@@ -106,25 +102,25 @@ def wifi():
 #             return '连接成功'
 
 
-# 测试服务器连接
 @app.route('/api/server_save', methods=['GET', 'POST'])
 def server_test():
     if request.method == 'POST':
         ip = request.form['ip']
         eid = request.form['eid']
         pw = request.form['pw']
-        ret = u.connect(ip, eid, pw)  # 测试服务器连接
-        if not ret:
-            return '连接失败'
-        else:  # 连接成功则写入配置
-            settings['ip'] = ip
-            settings['eid'] = eid
-            settings['pw'] = pw
-            return '连接成功'
+        # ret = u.connect(ip, eid, pw)
+        settings['ip'] = ip
+        settings['eid'] = eid
+        settings['pw'] = pw
+        return '保存成功'
+        # if not ret:
+        #     return '连接失败'
+        # else:
+        #
+        #     return '连接成功'
 
 
-# 重启
-@app.route('/reboot', methods=['GET', 'POST'])
+@app.route('/reboot', methods=['GET','POST'])
 def reboot_system():
     if platform.system() == 'Linux':
         os.system('reboot')
@@ -132,45 +128,78 @@ def reboot_system():
         exit()
 
 
-# 连接wifi测试
 def wifi_connect(ssid: str, psw: str):
     if platform.system() == 'Linux':
-        r = os.popen('nmcli conn show').read()  # 查看已有连接
-        if not 'wlan0' in r:  # 查看wifi是否已经连接
-            r = os.popen('nmcli d wifi connect "' + ssid + '" password "' + psw + '" wlan0')  # 利用nm连接wifi
-            timeout_t = time.time() + 10
-            while timeout_t > time.time():  # 10s以内自动重连，连不上判断为失败
-                if 'success' in r.read():
-                    os.system('sh ./route.sh')  # 连接成功，则配置子网等
-                    return True
+        r = os.popen('wpa_passphrase "' + ssid  + '" "' + psw + '" >/root/3DP2/3DP2/wpa.conf')
+#        time.sleep(3)
+        z = os.popen('sh /root/3DP2/3DP2/wireless.sh')
+        time.sleep(6)
+        os.system('udhcpc -i wlan0 -T 1 -t 15 -n')
+        timeout_t = time.time() + 10
+        while timeout_t > time.time():
+            with open ('/root/3DP2/3DP2/abc.txt') as a:
+                for line in a:
+                   if(' CTRL-EVENT-CONNECTED' in line):
+                       return True
+                return False
             return False
+        return False
     return True
 
 
-# 启动flask的web服务器
 def configure():
     if platform.system() == 'Linux':
-        app.run(host='0.0.0.0', port=80)  # Linux的local
+        app.run(host='0.0.0.0', port=80)
     else:
-        app.run(host='127.0.0.1', port=80)  # Windows的localhost，测试用
+        app.run(host='127.0.0.1', port=80) 
+
+#def check():
+#    l.stop()
+#    经测试，程序是可以通过aps进来，不过是延时三十秒，不要心急
+#    global i
+#    if(g == True): #这句话检测出来g没有变成True，所以是传g值发生问题
+#        l.stop()   #这个和上面的if构成了检测环节，但是并没有发生该有的现象
+#    if (Uploader.g):
+#        i = 0
+#        Uploader.g = False
+#    else:
+#        i = i + 1 #  这里经检测无误
+#        if(i >= 2):#  这里经检测无误
+#            i = 0
+#            os.system('reboot')
+#            while True:
+#                ret_1 = u.connect(settings['ip'], settings['eid'], settings['pw'])
+#                if ret_1:
+#                    l.t = 1
+#                    break
+#                else:
+#                    pass
+         # 测试是否连接上，制造现象    #  这里经检测无误
+#    timer = Timer(30,check)
+#    timer.start() 
 
 
+          
 if __name__ == '__main__':
-    l = LED()  # 实例化led对象
-    l.t = 1.5  # 闪灯间隔为1.5s
     t = threading.Thread(target=configure)
-    t.start()  # 开启启动flask的web服务器的线程，不然主函数无法向下运行
-    if os.path.isfile('settings.txt'):  # 有配置文件则读取配置文件
+    t.start()
+    count = 1
+    if os.path.isfile('settings.txt'):
         with open('settings.txt', 'r') as f:
             settings = eval(f.read())
-       
-        while True:  # 连接wifi并自动重连
-            ret = wifi_connect(settings['ssid'], settings['psw'])
-            if ret:
-                os.system('sh ./route.sh')  # 网络配置脚本
+        while True:
+            if settings['ssid'] is None or settings['psw'] is None:
                 break
-        l.t = 0.8  # 闪灯变快以示完成
-        while True:  # 连接打印机并自动重连，同时自动判定波特率
+            else:
+                ret = wifi_connect(settings['ssid'], settings['psw'])
+                count += 1
+                if ret:
+                    os.system('sh ./route.sh')
+                    break
+                elif count == 3:
+                    break
+        l.t = 2
+        while True:
             ret = p.connect(115200)
             if ret:
                 break
@@ -178,12 +207,32 @@ if __name__ == '__main__':
             if ret:
                 break
             time.sleep(5)
-        l.t = 0.1  # 闪灯变快以示完成
-        while True:  # 连接服务器并自动重连
+        l.t = 1
+        s = 0
+#        b = os.popen('iwconfig wlan0')
+        os.system('bash /root/3DP2/3DP2/eth0_0.sh')
+#        c = os.popen('ifconfig eth0:0')
+        l.t = 0.1
+        while True:
             ret = u.connect(settings['ip'], settings['eid'], settings['pw'])
             if ret:
                 break
-            time.sleep(5)
-        l.stop()  # 灯常亮以示全部完成
-
+        l.stop()
+#        aps.add_job(check,'interval',seconds=30)
+#        l.t = 0.1
+#        aps.start()
+#        l.t = 2
+#        timer = Timer(30,check)
+#        timer.start()
+        
+#        time_out10 = time.time() + 60
+#        while(time_out10 > time.time()):
+#            if(m == 1):
+#                global n
+#                n = threading.Timer(30.0,check)
+#                n.start()
+#        while(time_out10 < time.time()):
+#            if(m == 0):
+#                restart()
+#        l.stop()
 
